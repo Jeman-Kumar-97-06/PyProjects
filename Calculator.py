@@ -9,13 +9,16 @@ num2     = (input("Enter the second number : "))
 
 if operator == '+':
     result = float(num1)+float(num2)
+    print(round(result,3))
 elif operator == '-':
     result = float(num1)-float(num2)
+    print(round(result,3))
 elif operator == '*':
     result = float(num1)*float(num2)
+    print(round(result,3))
 elif operator == '/':
     result = float(num1)/float(num2) 
+    print(round(result,3))
 else:
     print("No Feature. Sorry!")
 #-------------------------------------------
-print(round(result,3)) 
