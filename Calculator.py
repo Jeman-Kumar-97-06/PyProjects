@@ -14,5 +14,8 @@ elif operator == '-':
 elif operator == '*':
     result = float(num1)*float(num2)
 elif operator == '/':
-    result = float(num1)/float(num2)
-print(result)
+    result = float(num1)/float(num2) 
+else:
+    print("No Feature. Sorry!")
+#-------------------------------------------
+print(round(result,3)) 
