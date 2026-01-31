@@ -18,3 +18,13 @@ for letter in plaintext:
 
 print("OG text:\n" + plaintext)
 print("Encrypted text:\n" + encrypted)
+
+
+#DECRYPT:
+ciphertext = input("Enter text to decrypt:\n")
+decrypted = ''
+for letter in  ciphertext:
+    index = key.index(letter)
+    decrypted += chars[index]
+
+print("Decrypted text:\n" + decrypted)
