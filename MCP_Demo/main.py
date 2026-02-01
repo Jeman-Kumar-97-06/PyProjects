@@ -21,6 +21,7 @@ def greet_user(name:str, style:str = 'friendly')->str:
         "formal"  :"Please write a formal, professional greeting",
         "casual"  :"Please write a casual, relaxed greeting"
     }
+    return f"{styles.get(style,styles['friendly'])}"
 
 def main():
     print("Hello from mcp-demo!")
