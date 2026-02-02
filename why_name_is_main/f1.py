@@ -1,4 +1,4 @@
-print(__name__)
+print("I will always be infront of your eyes. Ain't no one gonna stop me !")
 
 if __name__ == '__main__':
     print("This shit is running from ogfile yo")
