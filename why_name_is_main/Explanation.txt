@@ -1,0 +1,22 @@
+We use the '__name__ == __main__' part to confirm the code we are running is 
+running in the file it was written in, not the file it was imported into.
+
+Ex: 
+f1.py:
+>> print(__name__)
+
+$ python3 f1.py
+
+OUTPUT: __main__
+
+f2.py:
+>> import f1
+
+$ python3 f2.py
+
+OUTPUT: f1
+
+What happened in the above example was, 
+    * When the code was run from the OG file, it gave __main__
+    * When the code was imported to another file and run from there, 
+    it gave 'f1'
