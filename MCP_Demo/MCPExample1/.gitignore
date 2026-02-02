@@ -1,0 +1,22 @@
+# 1. Ignore the Virtual Environment (Crucial!)
+venv/
+.venv/
+env/
+.env/
+
+# 2. Ignore Python Cache files (The annoying __pycache__ folders)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 3. Ignore Environment Variables (NEVER commit API keys)
+.env
+.env.local
+
+# 4. Ignore IDE settings (VS Code, Pycharm, etc.)
+.vscode/
+.idea/
+
+# 5. OS generated files
+.DS_Store
+Thumbs.db
