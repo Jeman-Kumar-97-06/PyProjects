@@ -1,44 +1,39 @@
 import asyncio
 import os
+import sys
 from contextlib import AsyncExitStack
 from pathlib import Path
-from cerebras.cloud.sdk import Cerebras
+
+import google.generativeai as genai
 from dotenv import load_dotenv
+
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-load_dotenv()  # load environment variables from .env
+load_dotenv()
 
-# Claude model constant
-ANTHROPIC_MODEL = "llama3.1-8b"
+GEMINI_MODEL = "models/gemini-3-flash-preview"
 
 
 class MCPClient:
     def __init__(self):
-        # Initialize session and client objects
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
-        self._cerebras = Cerebras(
-            api_key = os.environ.get('CEREB')
-        )
+        self._model = None
 
     @property
-    def cerebras(self) -> Cerebras:
-        """Lazy-initialize Cerebras client when needed"""
-        if self._cerebras is None:
-            self._cerebras = Cerebras(api_key=os.getenv("CEREB"))
-        return self._cerebras
+    def model(self):
+        if self._model is None:
+            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+            self._model = genai.GenerativeModel(GEMINI_MODEL)
+        return self._model
 
     async def connect_to_server(self, server_script_path: str):
-        """Connect to an MCP server
-
-        Args:
-            server_script_path: Path to the server script (.py or .js)
-        """
         is_python = server_script_path.endswith(".py")
         is_js = server_script_path.endswith(".js")
+
         if not (is_python or is_js):
-            raise ValueError("Server script must be a .py or .js file")
+            raise ValueError("Server script must be .py or .js")
 
         if is_python:
             path = Path(server_script_path).resolve()
@@ -48,74 +43,90 @@ class MCPClient:
                 env=None,
             )
         else:
-            server_params = StdioServerParameters(command="node", args=[server_script_path], env=None)
+            server_params = StdioServerParameters(
+                command="node",
+                args=[server_script_path],
+                env=None,
+            )
 
-        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
+        stdio_transport = await self.exit_stack.enter_async_context(
+            stdio_client(server_params)
+        )
         self.stdio, self.write = stdio_transport
-        self.session = await self.exit_stack.enter_async_context(ClientSession(self.stdio, self.write))
+        self.session = await self.exit_stack.enter_async_context(
+            ClientSession(self.stdio, self.write)
+        )
 
         await self.session.initialize()
 
-        # List available tools
         response = await self.session.list_tools()
-        tools = response.tools
-        print("\nConnected to server with tools:", [tool.name for tool in tools])
+        print("\nConnected to server with tools:")
+        for tool in response.tools:
+            print(" -", tool.name)
 
     async def process_query(self, query: str) -> str:
-        """Process a query using Claude and available tools"""
-        messages = [{"role": "user", "content": query}]
-
         response = await self.session.list_tools()
-        available_tools = [
-            {"name": tool.name, "description": tool.description, "input_schema": tool.inputSchema}
+
+        tools = [
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.inputSchema,
+            }
             for tool in response.tools
         ]
 
-        # Initial Claude API call
-        response = self.cerebras.messages.create(
-            model=ANTHROPIC_MODEL, max_tokens=1000, messages=messages, tools=available_tools
-        )
+        chat = self.model.start_chat()
 
-        # Process response and handle tool calls
-        final_text = []
+        prompt = f"""
+You are an agent with access to tools.
 
-        for content in response.content:
-            if content.type == "text":
-                final_text.append(content.text)
-            elif content.type == "tool_use":
-                tool_name = content.name
-                tool_args = content.input
+User query:
+{query}
 
-                # Execute tool call
-                result = await self.session.call_tool(tool_name, tool_args)
-                final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
+Available tools:
+{tools}
 
-                # Continue conversation with tool results
-                if hasattr(content, "text") and content.text:
-                    messages.append({"role": "assistant", "content": content.text})
-                messages.append({"role": "user", "content": result.content})
+If a tool is needed, respond ONLY with JSON in this format:
+{{
+  "tool": "tool_name",
+  "args": {{ ... }}
+}}
 
-                # Get next response from Claude
-                response = self.cerebras.chat.completions.create(  # <--- CHANGED THIS
-                    model="llama3.1-70b",
-                    # max_tokens is optional here, usually defaults fine
-                    messages=messages,
-                    tools = available_tools
-                )
+Otherwise, respond normally.
+"""
 
-                final_text.append(response.content[0].text)
+        model_response = chat.send_message(prompt)
+        text = model_response.text.strip()
 
-        return "\n".join(final_text)
+        # Try parsing tool call
+        if text.startswith("{") and "tool" in text:
+            import json
+
+            call = json.loads(text)
+            tool_name = call["tool"]
+            tool_args = call.get("args", {})
+
+            result = await self.session.call_tool(tool_name, tool_args)
+
+            followup = f"""
+Tool `{tool_name}` returned:
+{result.content}
+
+Provide the final answer to the user.
+"""
+            final_response = chat.send_message(followup)
+            return final_response.text
+
+        return text
 
     async def chat_loop(self):
-        """Run an interactive chat loop"""
-        print("\nMCP Client Started!")
-        print("Type your queries or 'quit' to exit.")
+        print("\nMCP Client (Gemini) started.")
+        print("Type 'quit' to exit.")
 
         while True:
             try:
                 query = input("\nQuery: ").strip()
-
                 if query.lower() == "quit":
                     break
 
@@ -123,35 +134,28 @@ class MCPClient:
                 print("\n" + response)
 
             except Exception as e:
-                print(f"\nError: {str(e)}")
+                print("\nError:", e)
 
     async def cleanup(self):
-        """Clean up resources"""
         await self.exit_stack.aclose()
 
 
 async def main():
     if len(sys.argv) < 2:
-        print("Usage: python client.py <path_to_server_script>")
+        print("Usage: python client.py <server_script>")
         sys.exit(1)
+
+    if not os.getenv("GEMINI_API_KEY"):
+        print("Missing GEMINI_API_KEY")
+        return
 
     client = MCPClient()
     try:
         await client.connect_to_server(sys.argv[1])
-
-        # Check if we have a valid API key to continue
-        api_key = os.getenv("CEREB")
-        if not api_key:
-            print("\nNo CEREBRAS_API_KEY found. To query these tools with Claude, set your API key:")
-            print("  export CEREBRAS_API_KEY=your-api-key-here")
-            return
-
         await client.chat_loop()
     finally:
         await client.cleanup()
 
 
 if __name__ == "__main__":
-    import sys
-
     asyncio.run(main())
