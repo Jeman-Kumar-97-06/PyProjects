@@ -1,0 +1,33 @@
+fastapi_project/
+│
+├── app/
+│   ├── main.py
+│   │
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   └── dependencies.py
+│   │
+│   ├── db/
+│   │   ├── session.py
+│   │   └── models.py
+│   │
+│   ├── schemas/
+│   │   └── user.py
+│   │
+│   ├── services/
+│   │   └── user_service.py
+│   │
+│   ├── api/
+│   │   ├── router.py
+│   │   └── routes/
+│   │       └── user_routes.py
+│   │
+│   └── utils/
+│       └── helpers.py
+│
+├── tests/
+│
+├── .env
+├── requirements.txt
+└── README.md
