@@ -9,7 +9,7 @@ async def create_agent(**kwargs) -> Agent :
     return Agent(
         edge=getstream.Edge(),
         agent_user=User(name='Assistant',id='agent'),
-        instructions='Describe what you see. Be cocise.',
+        instructions='Describe what you see. Be concise.',
         llm=gemini.Realtime(fps=3), #Video frames/sec sent to model
     )
 

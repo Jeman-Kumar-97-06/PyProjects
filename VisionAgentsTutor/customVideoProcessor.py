@@ -11,12 +11,7 @@ class FrameLogger(VideoProcessor):
         self.frame_count = 0
         self._forwarder: Optional[VideoForwarder] = None
 
-    async def process_video(
-            self,
-            track: aiortc.VideoStreamTrack,
-            participant_id:Optional[str],
-            shared_forwarder: Optional[VideoForwarder] = None,
-    ) -> None:
+    async def process_video(self,track: aiortc.VideoStreamTrack,participant_id:Optional[str],shared_forwarder: Optional[VideoForwarder] = None,) -> None:
         self._forwarder = shared_forwarder
         self._forwarder.add_frame_handler(
             self._log_frame,
